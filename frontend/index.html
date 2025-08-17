@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Reconhecimento Facial</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Sistema de Reconhecimento Facial</h1>
+    </header>
+
+    <main>
+        <section id="register">
+            <h2>Registrar Pessoa</h2>
+            <form id="register-form">
+                <input type="text" id="person-name" placeholder="Nome da Pessoa" required>
+                <input type="file" id="person-image" accept="image/*" required>
+                <button type="submit">Registrar</button>
+            </form>
+            <div id="register-status"></div>
+        </section>
+
+        <section id="recognize">
+            <h2>Reconhecimento Facial</h2>
+            
+            <div class="camera-container">
+                <video id="video" width="320" height="240" autoplay></video>
+            </div>
+            
+            <button id="capture-btn">Capturar Imagem e Reconhecer</button>
+
+            <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+
+            <div id="recognize-status"></div>
+        </section>
+
+        <section id="people">
+            <h2>Pessoas Cadastradas</h2>
+            <button id="list-people-btn">Listar Pessoas</button>
+            <ul id="people-list"></ul>
+        </section>
+
+        <section id="access-log">
+            <h2>Registro de Acessos</h2>
+            <button id="list-log-btn">Listar Acessos</button>
+            <ul id="log-list"></ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Projeto de Reconhecimento Facial</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
