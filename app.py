@@ -14,7 +14,7 @@ app = Flask(__name__)
 # Definir a pasta base do projeto
 basedir = os.path.abspath(os.path.dirname(__file__))
 # Configuração do banco de dados SQLite
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(basedir, 'data', 'database.db')}"
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://mobclassapp@localhost/database'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 CORS(app)
 
