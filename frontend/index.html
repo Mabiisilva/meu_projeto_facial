@@ -62,6 +62,7 @@
             height: 100%;
             object-fit: cover;
             border-radius: 1rem;
+            transform: scaleX(-1); /* Espelha o vídeo horizontalmente */
         }
 
         .countdown-overlay {
@@ -250,7 +251,7 @@
     <!-- Script JavaScript para a funcionalidade -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const API_URL = 'http://72.60.8.197:5000'; // Substitua pelo seu IP/porta da VPS
+            const API_URL = 'http://192.168.1.103:5000'; // Substitua pelo seu IP/porta da VPS
             
             // Variáveis globais
             let stream = null;
@@ -299,15 +300,41 @@
 
             // Funções de Utilitário
             function showStatus(element, message, type) {
-                element.textContent = message;
-                element.classList.remove('hidden');
-                element.className = 'p-3 text-center rounded-lg';
-                if (type === 'success') {
-                    element.classList.add('bg-green-600', 'text-white');
-                } else if (type === 'error') {
-                    element.classList.add('bg-red-600', 'text-white');
-                } else {
-                    element.classList.add('bg-blue-600', 'text-white');
+                // Se for um elemento que contém outros elementos (como parentNode), cria um div de status
+                if (element && element.children && element.children.length > 0) {
+                    // Remove status anterior se existir
+                    const existingStatus = element.querySelector('.status-message');
+                    if (existingStatus) {
+                        existingStatus.remove();
+                    }
+                    
+                    // Cria novo elemento de status
+                    const statusElement = document.createElement('div');
+                    statusElement.className = 'status-message p-3 text-center rounded-lg';
+                    statusElement.textContent = message;
+                    
+                    if (type === 'success') {
+                        statusElement.classList.add('bg-green-600', 'text-white');
+                    } else if (type === 'error') {
+                        statusElement.classList.add('bg-red-600', 'text-white');
+                    } else {
+                        statusElement.classList.add('bg-blue-600', 'text-white');
+                    }
+                    
+                    // Adiciona no início do elemento
+                    element.insertBefore(statusElement, element.firstChild);
+                } else if (element) {
+                    // Para elementos simples, funciona como antes
+                    element.textContent = message;
+                    element.classList.remove('hidden');
+                    element.className = 'p-3 text-center rounded-lg';
+                    if (type === 'success') {
+                        element.classList.add('bg-green-600', 'text-white');
+                    } else if (type === 'error') {
+                        element.classList.add('bg-red-600', 'text-white');
+                    } else {
+                        element.classList.add('bg-blue-600', 'text-white');
+                    }
                 }
             }
 
@@ -350,12 +377,35 @@
             // Inicia a câmera para o reconhecimento
             async function startCamera() {
                 try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    // Verifica se o navegador suporta getUserMedia
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        showStatus(recognizeStatus, 'Seu navegador não suporta câmera. Use Chrome ou Firefox.', 'error');
+                        return;
+                    }
+
+                    // Primeiro tenta com configurações mais específicas para celular
+                    const constraints = {
+                        video: {
+                            facingMode: 'user', // Câmera frontal
+                            width: { ideal: 640 },
+                            height: { ideal: 480 }
+                        }
+                    };
+                    
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
                     videoRecognize.srcObject = stream;
                     videoRecognize.play();
                 } catch (err) {
-                    showStatus(recognizeStatus, 'Erro ao acessar a câmera. Por favor, permita o acesso.', 'error');
-                    console.error('Erro ao acessar a câmera:', err);
+                    console.error('Erro com configurações específicas, tentando configuração básica:', err);
+                    try {
+                        // Se falhar, tenta com configuração mais simples
+                        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        videoRecognize.srcObject = stream;
+                        videoRecognize.play();
+                    } catch (err2) {
+                        showStatus(recognizeStatus, 'Erro ao acessar a câmera. Verifique as permissões do navegador.', 'error');
+                        console.error('Erro ao acessar a câmera:', err2);
+                    }
                 }
             }
 

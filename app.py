@@ -1,20 +1,26 @@
 # backend/app.py
-from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
+import datetime
+import io
+import json
+import os
+
+import dotenv
 import face_recognition
 import numpy as np
-import io
-import os
-import json
+from flask import Flask, jsonify, request
 from flask_cors import CORS
-from database import db, Pessoa, RegistroAcesso
-import datetime
+from flask_sqlalchemy import SQLAlchemy
+
+from database import Pessoa, RegistroAcesso, db
+
+# Carregar variáveis de ambiente do arquivo .env
+dotenv.load_dotenv()
 
 app = Flask(__name__)
 # Definir a pasta base do projeto
 basedir = os.path.abspath(os.path.dirname(__file__))
-# Configuração do banco de dados SQLite
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://mobclassapp:@127.0.0.1/database'
+# Configuração do banco de dados via variável de ambiente
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://mobclassapp:dev-senha@127.0.0.1:5432/database')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 CORS(app)
 
@@ -225,16 +231,7 @@ def register_person_api():
         return jsonify({"error": "Erro no registro da pessoa", "details": str(e)}), 500
 
 if __name__ == '__main__':
-    # Cria a pasta 'instance' se não existir para o SQLite DB
     os.makedirs(app.instance_path, exist_ok=True)
-
-    # Inicia o servidor
-    app.run(debug=True, host='0.0.0.0') # host='0.0.0.0' permite acesso de outras máquinas na rede
-    @app.cli.command("create-db")
-    def create_db():
-        """Creates the database tables."""
-        db.create_all()
-        print("Banco de dados criado com sucesso!")
-
-    if __name__ == '__main__':
-        app.run(debug=True)
+    host = os.environ.get('BACKEND_HOST', '0.0.0.0')
+    port = int(os.environ.get('BACKEND_PORT', 5000))
+    app.run(debug=True, host=host, port=port)
