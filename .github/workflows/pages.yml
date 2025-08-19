@@ -1,3 +1,11 @@
+name: Deploy Site
+
+on:
+  push:
+    branches:
+      - principal   # ou main, dependendo do nome do seu branch
+  workflow_dispatch:   # <-- Isso habilita o botão "Run workflow"
+
 # O nome do seu workflow. Ele aparece na aba 'Actions' do seu repositório.
 name: Deploy Frontend to GitHub Pages
 
