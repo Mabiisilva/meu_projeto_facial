@@ -1,37 +1,44 @@
-name: Deploy GitHub Pages
+# O nome do seu workflow. Ele aparece na aba 'Actions' do seu repositório.
+name: Deploy Frontend to GitHub Pages
 
+# Define os eventos que disparam este workflow. Neste caso, é sempre que um push
+# acontece na ramificação 'main'.
 on:
   push:
-    branches: ["main"]   # dispara no push para main
-  workflow_dispatch:     # permite rodar manualmente
+    branches:
+      - main
+  # A linha 'workflow_dispatch:' permite que você execute o workflow manualmente
+  # a partir da aba 'Actions'.
+  workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
-
+# Define um único trabalho (job) chamado 'build-and-deploy'.
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build-and-deploy:
+    # Este job será executado no sistema operacional Ubuntu mais recente.
     runs-on: ubuntu-latest
+
+    # Os passos (steps) que o job irá executar.
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
+      # Passo 1: Faz o checkout do seu repositório para que o workflow
+      # possa acessar seus arquivos.
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      # Passo 2: Configura e publica o seu site.
+      # Ele faz o upload dos arquivos da pasta 'frontend'.
+      - name: Upload Pages Artifact
+        # CORREÇÃO: Usando a versão mais recente e compatível da ação.
+        uses: actions/upload-pages-artifact@v4
         with:
-          path: 'frontend'   # 👈 aqui aponta para sua pasta com os arquivos HTML
+          # Esta é a linha mais importante! Ela informa ao GitHub para
+          # publicar o conteúdo da pasta 'frontend'.
+          path: 'frontend'
 
+      # Passo 3: Opcional, mas útil para verificar o que foi publicado.
+      - name: Print uploaded path (optional)
+        run: echo "Path for deployment: frontend"
+
+      # Passo 4: Implanta o site no GitHub Pages.
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v1
+        uses: actions/deploy-pages@v4
