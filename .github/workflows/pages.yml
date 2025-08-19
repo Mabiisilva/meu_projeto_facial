@@ -1,44 +1,25 @@
-# O nome do seu workflow. Ele aparece na aba 'Actions' do seu repositório.
+# O nome do seu workflow.
 name: Deploy Frontend to GitHub Pages
 
-# Define os eventos que disparam este workflow. Neste caso, é sempre que um push
-# acontece na ramificação 'main'.
+# Dispara o workflow em eventos push na ramificação principal e manualmente.
 on:
   push:
     branches:
       - main
-  # A linha 'workflow_dispatch:' permite que você execute o workflow manualmente
-  # a partir da aba 'Actions'.
   workflow_dispatch:
 
-# Define um único trabalho (job) chamado 'build-and-deploy'.
+# Define um único job de implantação.
 jobs:
-  build-and-deploy:
-    # Este job será executado no sistema operacional Ubuntu mais recente.
+  deploy:
     runs-on: ubuntu-latest
-
-    # Os passos (steps) que o job irá executar.
     steps:
-      # Passo 1: Faz o checkout do seu repositório para que o workflow
-      # possa acessar seus arquivos.
-      - name: Checkout Repository
+      # Faz o checkout do repositório.
+      - name: Checkout
         uses: actions/checkout@v4
-        
-      # Passo 2: Configura e publica o seu site.
-      # Ele faz o upload dos arquivos da pasta 'frontend'.
-      - name: Upload Pages Artifact
-        # CORREÇÃO: Usando a versão correta. 'v3' para upload e 'v4' para deploy.
-        uses: actions/upload-pages-artifact@v3
-        with:
-          # Esta é a linha mais importante! Ela informa ao GitHub para
-          # publicar o conteúdo da pasta 'frontend'.
-          path: 'frontend'
 
-      # Passo 3: Opcional, mas útil para verificar o que foi publicado.
-      - name: Print uploaded path (optional)
-        run: echo "Path for deployment:'frontend'
-
-      # Passo 4: Implanta o site no GitHub Pages.
+      # Configura e implanta o site.
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./frontend
