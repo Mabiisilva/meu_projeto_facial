@@ -36,7 +36,7 @@ jobs:
 
       # Passo 3: Opcional, mas útil para verificar o que foi publicado.
       - name: Print uploaded path (optional)
-        run: echo "Path for deployment: frontend"
+        run: echo "Path for deployment:"frontend"
 
       # Passo 4: Implanta o site no GitHub Pages.
       - name: Deploy to GitHub Pages
