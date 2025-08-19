@@ -62,6 +62,7 @@
             height: 100%;
             object-fit: cover;
             border-radius: 1rem;
+            transform: scaleX(-1); /* Espelha o vídeo horizontalmente */
         }
 
         .countdown-overlay {
@@ -250,7 +251,28 @@
     <!-- Script JavaScript para a funcionalidade -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const API_URL = 'http://72.60.8.197:5000'; // Substitua pelo seu IP/porta da VPS
+            console.log('🚀 [INIT] Aplicação iniciada');
+            console.log(`🌐 [INIT] User Agent: ${navigator.userAgent}`);
+            console.log(`🔒 [INIT] Protocolo: ${window.location.protocol}`);
+            console.log(`🏠 [INIT] Host: ${window.location.host}`);
+            console.log(`📱 [INIT] Viewport: ${window.innerWidth}x${window.innerHeight}`);
+            
+            const API_URL = 'https://192.168.1.103:5000'; // Backend HTTPS agora que temos certificados
+            console.log(`🔗 [INIT] API URL configurada: ${API_URL}`);
+            
+            // Verifica se estamos em HTTPS
+            if (window.location.protocol === 'https:') {
+                console.log('🔐 [INIT] Aplicação rodando em HTTPS - câmera permitida');
+            } else {
+                console.warn('⚠️ [INIT] Aplicação rodando em HTTP - câmera pode ser bloqueada');
+            }
+            
+            // Verifica suporte a getUserMedia
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                console.log('✅ [INIT] getUserMedia disponível');
+            } else {
+                console.error('❌ [INIT] getUserMedia NÃO disponível');
+            }
             
             // Variáveis globais
             let stream = null;
@@ -299,20 +321,48 @@
 
             // Funções de Utilitário
             function showStatus(element, message, type) {
-                element.textContent = message;
-                element.classList.remove('hidden');
-                element.className = 'p-3 text-center rounded-lg';
-                if (type === 'success') {
-                    element.classList.add('bg-green-600', 'text-white');
-                } else if (type === 'error') {
-                    element.classList.add('bg-red-600', 'text-white');
-                } else {
-                    element.classList.add('bg-blue-600', 'text-white');
+                // Se for um elemento que contém outros elementos (como parentNode), cria um div de status
+                if (element && element.children && element.children.length > 0) {
+                    // Remove status anterior se existir
+                    const existingStatus = element.querySelector('.status-message');
+                    if (existingStatus) {
+                        existingStatus.remove();
+                    }
+                    
+                    // Cria novo elemento de status
+                    const statusElement = document.createElement('div');
+                    statusElement.className = 'status-message p-3 text-center rounded-lg';
+                    statusElement.textContent = message;
+                    
+                    if (type === 'success') {
+                        statusElement.classList.add('bg-green-600', 'text-white');
+                    } else if (type === 'error') {
+                        statusElement.classList.add('bg-red-600', 'text-white');
+                    } else {
+                        statusElement.classList.add('bg-blue-600', 'text-white');
+                    }
+                    
+                    // Adiciona no início do elemento
+                    element.insertBefore(statusElement, element.firstChild);
+                } else if (element) {
+                    // Para elementos simples, funciona como antes
+                    element.textContent = message;
+                    element.classList.remove('hidden');
+                    element.className = 'p-3 text-center rounded-lg';
+                    if (type === 'success') {
+                        element.classList.add('bg-green-600', 'text-white');
+                    } else if (type === 'error') {
+                        element.classList.add('bg-red-600', 'text-white');
+                    } else {
+                        element.classList.add('bg-blue-600', 'text-white');
+                    }
                 }
             }
 
             // Função principal para trocar de seção
             function switchSection(sectionId) {
+                console.log(`🔄 [SECTION] Mudando para seção: ${sectionId}`);
+                
                 // Esconde todas as seções primeiro
                 Object.values(sections).forEach(section => section.classList.add('hidden'));
 
@@ -330,79 +380,167 @@
 
                 // Ações específicas para cada seção
                 if (sectionId === 'recognize-section') {
+                    console.log('📹 [SECTION] Seção de reconhecimento ativada, iniciando câmera...');
                     startCamera();
                 } else {
+                    console.log('🛑 [SECTION] Parando câmera (mudança de seção)');
                     stopCamera();
                 }
 
                 if (sectionId === 'history-section') {
+                    console.log('📚 [SECTION] Seção de histórico ativada, carregando logs...');
                     fetchAndListAccessLog();
                 }
 
                 if (sectionId === 'database-section') {
+                    console.log('🗄️ [SECTION] Seção de banco ativada, carregando pessoas...');
                     fetchAndListPeople(true);
                 }
                 
                 // Sempre recarrega a lista de pessoas recentes, pois é uma seção compartilhada
                 fetchAndListPeople();
+                console.log(`✅ [SECTION] Mudança para ${sectionId} concluída`);
             }
 
             // Inicia a câmera para o reconhecimento
             async function startCamera() {
+                console.log('🎥 [CAMERA] Iniciando função startCamera()...');
+                
                 try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    // Verifica se o navegador suporta getUserMedia
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        console.error('❌ [CAMERA] Navegador não suporta getUserMedia');
+                        showStatus(recognizeStatus, 'Seu navegador não suporta câmera. Use Chrome ou Firefox.', 'error');
+                        return;
+                    }
+
+                    console.log('✅ [CAMERA] getUserMedia disponível');
+
+                    // Primeiro tenta com configurações mais específicas para celular
+                    const constraints = {
+                        video: {
+                            facingMode: 'user', // Câmera frontal
+                            width: { ideal: 640 },
+                            height: { ideal: 480 }
+                        }
+                    };
+                    
+                    console.log('🔧 [CAMERA] Tentando acesso com constraints:', constraints);
+                    
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    console.log('✅ [CAMERA] Stream obtido com sucesso:', stream);
+                    console.log(`📹 [CAMERA] Tracks de vídeo encontrados: ${stream.getVideoTracks().length}`);
+                    
                     videoRecognize.srcObject = stream;
-                    videoRecognize.play();
+                    console.log('🎬 [CAMERA] Stream atribuído ao elemento video');
+                    
+                    await videoRecognize.play();
+                    console.log('▶️ [CAMERA] Vídeo iniciado com sucesso');
+                    
                 } catch (err) {
-                    showStatus(recognizeStatus, 'Erro ao acessar a câmera. Por favor, permita o acesso.', 'error');
-                    console.error('Erro ao acessar a câmera:', err);
+                    console.error('❌ [CAMERA] Erro com configurações específicas:', err);
+                    console.log('🔄 [CAMERA] Tentando configuração básica...');
+                    
+                    try {
+                        // Se falhar, tenta com configuração mais simples
+                        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        console.log('✅ [CAMERA] Stream básico obtido:', stream);
+                        
+                        videoRecognize.srcObject = stream;
+                        await videoRecognize.play();
+                        console.log('▶️ [CAMERA] Vídeo básico iniciado com sucesso');
+                        
+                    } catch (err2) {
+                        console.error('❌ [CAMERA] Erro fatal ao acessar câmera:', err2);
+                        console.log(`📱 [CAMERA] User agent: ${navigator.userAgent}`);
+                        console.log(`🔒 [CAMERA] Protocolo atual: ${window.location.protocol}`);
+                        console.log(`🌐 [CAMERA] Host atual: ${window.location.host}`);
+                        
+                        showStatus(recognizeStatus, 'Erro ao acessar a câmera. Verifique as permissões do navegador.', 'error');
+                    }
                 }
             }
 
             // Para a câmera
             function stopCamera() {
+                console.log('🛑 [CAMERA] Parando câmera...');
+                
                 if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
+                    console.log(`🔍 [CAMERA] Stream encontrado com ${stream.getTracks().length} tracks`);
+                    stream.getTracks().forEach((track, index) => {
+                        console.log(`🚪 [CAMERA] Parando track ${index}: ${track.kind} (${track.label})`);
+                        track.stop();
+                    });
+                    stream = null;
+                    console.log('✅ [CAMERA] Câmera parada com sucesso');
+                } else {
+                    console.log('ℹ️ [CAMERA] Nenhum stream ativo para parar');
                 }
             }
 
             // Função para capturar a imagem e enviar para a API
             async function captureAndRecognize() {
+                console.log('📸 [RECOGNIZE] Iniciando captura e reconhecimento...');
+                
                 // Desenha o frame atual do vídeo no canvas
                 canvasRecognize.width = videoRecognize.videoWidth;
                 canvasRecognize.height = videoRecognize.videoHeight;
+                console.log(`🖼️ [RECOGNIZE] Dimensões do canvas: ${canvasRecognize.width}x${canvasRecognize.height}`);
+                
                 canvasRecognize.getContext('2d').drawImage(videoRecognize, 0, 0, canvasRecognize.width, canvasRecognize.height);
+                console.log('🎨 [RECOGNIZE] Frame capturado no canvas');
 
                 // Converte a imagem do canvas para um formato de arquivo (Blob)
                 canvasRecognize.toBlob(async (blob) => {
+                    console.log(`📦 [RECOGNIZE] Blob criado: ${blob.size} bytes, tipo: ${blob.type}`);
+                    
                     const formData = new FormData();
                     formData.append('image', blob, 'capture.png');
+                    console.log('📤 [RECOGNIZE] FormData preparado');
 
                     showStatus(recognizeStatus, 'Reconhecendo...', 'info');
 
                     try {
+                        console.log(`🌐 [RECOGNIZE] Enviando requisição para: ${API_URL}/recognize`);
+                        console.log(`🔗 [RECOGNIZE] Método: POST, Content-Type: multipart/form-data`);
+                        
                         const response = await fetch(`${API_URL}/recognize`, {
                             method: 'POST',
                             body: formData
                         });
+                        
+                        console.log(`📡 [RECOGNIZE] Resposta recebida: ${response.status} ${response.statusText}`);
+                        console.log(`📋 [RECOGNIZE] Headers da resposta:`, response.headers);
+                        
                         const data = await response.json();
+                        console.log('📄 [RECOGNIZE] Dados da resposta:', data);
 
                         if (response.ok) {
                             const result = data[0];
+                            console.log(`🎯 [RECOGNIZE] Resultado do reconhecimento:`, result);
+                            
                             if (result.recognized) {
+                                console.log(`✅ [RECOGNIZE] Pessoa reconhecida: ${result.name}`);
                                 showStatus(recognizeStatus, `Olá, ${result.name}! Reconhecido com sucesso.`, 'success');
                             } else {
+                                console.log(`❌ [RECOGNIZE] Pessoa não reconhecida: ${result.name}`);
                                 showStatus(recognizeStatus, 'Usuário não cadastrado.', 'error');
                             }
                         } else {
+                            console.error(`❌ [RECOGNIZE] Erro HTTP: ${response.status}`, data);
                             showStatus(recognizeStatus, `Erro no reconhecimento: ${data.error || 'Erro desconhecido'}`, 'error');
                         }
                     } catch (error) {
-                        console.error('Erro ao conectar com a API:', error);
+                        console.error('❌ [RECOGNIZE] Erro de conexão:', error);
+                        console.log(`🔍 [RECOGNIZE] Tipo do erro: ${error.name}`);
+                        console.log(`📝 [RECOGNIZE] Mensagem: ${error.message}`);
+                        console.log(`📊 [RECOGNIZE] Stack trace:`, error.stack);
+                        
                         showStatus(recognizeStatus, 'Erro de conexão com a API. Verifique se o servidor está online.', 'error');
                     } finally {
                         // Reseta a contagem regressiva para a próxima detecção
                         countdownOverlay.classList.add('hidden');
+                        console.log('🔄 [RECOGNIZE] Processo de reconhecimento finalizado');
                     }
                 }, 'image/jpeg'); // Formato mais eficiente
             }
