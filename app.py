@@ -14,21 +14,38 @@ from flask_sqlalchemy import SQLAlchemy
 from database import Pessoa, RegistroAcesso, db
 
 # Carregar variáveis de ambiente do arquivo .env
+print("🔧 Carregando variáveis do arquivo .env...")
 dotenv.load_dotenv()
 
 app = Flask(__name__)
 # Definir a pasta base do projeto
 basedir = os.path.abspath(os.path.dirname(__file__))
-# Configuração do banco de dados via variável de ambiente
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://mobclassapp:dev-senha@127.0.0.1:5432/database')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-CORS(app)
+print(f"📁 Diretório base do projeto: {basedir}")
 
+# Configuração do banco de dados via variável de ambiente
+database_url = os.environ.get('DATABASE_URL', 'postgresql://mobclassapp:dev-senha@127.0.0.1:5432/database')
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+print(f"🗄️  URL do banco de dados: {database_url}")
+
+# Configurar CORS
+cors_origins = ["https://192.168.1.103:8443", "https://localhost:8443"]
+CORS(app, origins=cors_origins)
+print(f"🌐 CORS configurado para origens: {cors_origins}")
+
+print("🔗 Inicializando banco de dados...")
 db.init_app(app)
 
 with app.app_context():
-    db.create_all()
-    print("Banco de dados criado com sucesso!")
+    try:
+        print("📊 Criando tabelas do banco de dados...")
+        db.create_all()
+        print("✅ Banco de dados criado com sucesso!")
+    except Exception as e:
+        print(f"❌ Erro ao criar banco de dados: {e}")
+        print(f"   Tipo do erro: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
 
 # Lista para armazenar os encodings e nomes das pessoas conhecidas carregadas do DB
 known_face_encodings = []
@@ -36,19 +53,40 @@ known_face_names = []
 
 def load_known_faces():
     """Carrega os encodings de rostos conhecidos do banco de dados."""
+    print("📥 Carregando rostos conhecidos do banco de dados...")
     global known_face_encodings, known_face_names
     known_face_encodings = []
     known_face_names = []
 
-    with app.app_context():
-        pessoas = Pessoa.query.all()
-        for pessoa in pessoas:
-            # CORREÇÃO: Lê a coluna 'encodings_json' e converte para lista
-            encodings_for_person = json.loads(pessoa.encodings_json)
-            for encoding_list in encodings_for_person:
-                known_face_encodings.append(np.array(encoding_list))
-                known_face_names.append(pessoa.nome)
-    print(f"Carregados {len(known_face_names)} rostos conhecidos do banco de dados.")
+    try:
+        with app.app_context():
+            pessoas = Pessoa.query.all()
+            print(f"   Pessoas encontradas no banco: {len(pessoas)}")
+            
+            for i, pessoa in enumerate(pessoas):
+                print(f"   Processando pessoa {i+1}: {pessoa.nome}")
+                try:
+                    # CORREÇÃO: Lê a coluna 'encodings_json' e converte para lista
+                    encodings_for_person = json.loads(pessoa.encodings_json)
+                    print(f"   Encodings para {pessoa.nome}: {len(encodings_for_person)}")
+                    
+                    for j, encoding_list in enumerate(encodings_for_person):
+                        known_face_encodings.append(np.array(encoding_list))
+                        known_face_names.append(pessoa.nome)
+                        print(f"   Encoding {j+1} adicionado para {pessoa.nome}")
+                except Exception as person_error:
+                    print(f"❌ Erro ao processar pessoa {pessoa.nome}: {person_error}")
+                    
+        print(f"✅ Total carregado: {len(known_face_names)} rostos conhecidos")
+        for i, name in enumerate(set(known_face_names)):
+            count = known_face_names.count(name)
+            print(f"   {name}: {count} encoding(s)")
+            
+    except Exception as e:
+        print(f"❌ Erro ao carregar faces conhecidas: {e}")
+        print(f"   Tipo do erro: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
 
 @app.before_request
 def load_faces_before_first_request():
@@ -67,31 +105,44 @@ def recognize_face():
     Este endpoint recebe uma imagem, realiza o reconhecimento facial,
     e então salva um registro de acesso na base de dados.
     """
+    print("🎯 Endpoint /recognize chamado")
+    
     if 'image' not in request.files:
+        print("❌ Nenhuma imagem fornecida na requisição")
         return jsonify({"error": "Nenhuma imagem fornecida"}), 400
 
     file = request.files['image']
     if file.filename == '':
+        print("❌ Nenhum arquivo selecionado")
         return jsonify({"error": "Nenhum arquivo selecionado"}), 400
 
+    print(f"📷 Processando imagem: {file.filename}")
+    
     try:
         # Carregar a imagem para um array numpy
+        print("🔄 Carregando imagem para array numpy...")
         image = face_recognition.load_image_file(io.BytesIO(file.read()))
 
+        print("🔍 Detectando faces na imagem...")
         face_locations = face_recognition.face_locations(image)
+        print(f"   Faces encontradas: {len(face_locations)}")
+        
         face_encodings = face_recognition.face_encodings(image, face_locations)
+        print(f"   Encodings gerados: {len(face_encodings)}")
 
         # Obtenha a data e hora atuais
         current_time = datetime.datetime.now()
 
         # Atualiza a lista de rostos conhecidos antes de cada reconhecimento,
         # para garantir que os registros mais recentes sejam usados.
+        print("🔄 Atualizando lista de rostos conhecidos...")
         load_known_faces()
 
         response_data = []
         
         if not face_encodings:
             # Caso não encontre nenhuma face, cria um registro como "Desconhecido"
+            print("⚠️  Nenhuma face detectada na imagem")
             with app.app_context():
                 new_log = RegistroAcesso(
                     pessoa_id=None,
@@ -101,6 +152,7 @@ def recognize_face():
                 )
                 db.session.add(new_log)
                 db.session.commit()
+                print("📝 Registro 'Desconhecido' salvo no banco")
             
             response_data.append({
                 "name": "Desconhecido",
@@ -108,27 +160,37 @@ def recognize_face():
                 "timestamp": current_time.strftime("%Y-%m-%d %H:%M:%S")
             })
 
-        for face_encoding in face_encodings:
+        for i, face_encoding in enumerate(face_encodings):
+            print(f"🔍 Analisando face {i+1}/{len(face_encodings)}")
             name = "Desconhecido"
             is_recognized = False
             pessoa_id = None
 
             if known_face_encodings:
+                print(f"   Comparando com {len(known_face_encodings)} faces conhecidas...")
                 matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
                 face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
                 best_match_index = np.argmin(face_distances)
+                print(f"   Melhor match: índice {best_match_index}, distância: {face_distances[best_match_index]:.4f}")
 
                 if matches[best_match_index]:
                     name = known_face_names[best_match_index]
                     is_recognized = True
+                    print(f"✅ Face reconhecida como: {name}")
                     
                     # Tenta encontrar o ID da pessoa no banco de dados
                     with app.app_context():
                         pessoa_identificada = Pessoa.query.filter_by(nome=name).first()
                         if pessoa_identificada:
                             pessoa_id = pessoa_identificada.id
+                            print(f"   ID da pessoa no banco: {pessoa_id}")
+                else:
+                    print("❌ Face não reconhecida")
+            else:
+                print("⚠️  Nenhuma face conhecida carregada no sistema")
             
             # Cria e salva o novo registro de acesso
+            print("📝 Salvando registro de acesso no banco...")
             with app.app_context():
                 new_log = RegistroAcesso(
                     pessoa_id=pessoa_id,
@@ -137,7 +199,12 @@ def recognize_face():
                     data_hora=current_time
                 )
                 db.session.add(new_log)
-                db.session.commit()
+                try:
+                    db.session.commit()
+                    print(f"✅ Registro salvo: {name} ({'reconhecido' if is_recognized else 'não reconhecido'})")
+                except Exception as db_error:
+                    print(f"❌ Erro ao salvar no banco: {db_error}")
+                    db.session.rollback()
 
             response_data.append({
                 "name": name,
@@ -145,10 +212,14 @@ def recognize_face():
                 "timestamp": current_time.strftime("%Y-%m-%d %H:%M:%S")
             })
 
+        print(f"📤 Retornando resposta com {len(response_data)} resultados")
         return jsonify(response_data), 200
 
     except Exception as e:
-        print(f"Erro no reconhecimento: {e}")
+        print(f"❌ Erro no reconhecimento: {e}")
+        print(f"   Tipo do erro: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "Erro no processamento da imagem", "details": str(e)}), 500
 
 @app.route('/list_people', methods=['GET'])
@@ -231,7 +302,28 @@ def register_person_api():
         return jsonify({"error": "Erro no registro da pessoa", "details": str(e)}), 500
 
 if __name__ == '__main__':
-    os.makedirs(app.instance_path, exist_ok=True)
+    print("🚀 Iniciando aplicação Flask...")
+    
+    try:
+        os.makedirs(app.instance_path, exist_ok=True)
+        print(f"📁 Diretório instance criado: {app.instance_path}")
+    except Exception as e:
+        print(f"⚠️  Erro ao criar diretório instance: {e}")
+    
     host = os.environ.get('BACKEND_HOST', '0.0.0.0')
     port = int(os.environ.get('BACKEND_PORT', 5000))
-    app.run(debug=True, host=host, port=port)
+    
+    print(f"🌐 Configuração do servidor:")
+    print(f"   Host: {host}")
+    print(f"   Port: {port}")
+    print(f"   Debug: True")
+    print(f"   URL completa: http://{host}:{port}")
+    
+    try:
+        print("🎯 Chamando app.run()...")
+        app.run(debug=True, host=host, port=port)
+    except Exception as e:
+        print(f"❌ Erro ao iniciar servidor: {e}")
+        print(f"   Tipo do erro: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()

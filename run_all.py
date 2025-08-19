@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 # Caminhos
-BACKEND = 'app.py'
+BACKEND = 'app_https.py'  # Usando versão HTTPS agora que temos certificados
 FRONTEND = os.path.join('frontend', 'https_server.py')
 
 # Detecta o comando python correto
@@ -68,11 +68,11 @@ if __name__ == '__main__':
     index_path = os.path.join('frontend', 'index.html')
     with open(index_path, 'r', encoding='utf-8') as f:
         html = f.read()
-    html_new = re.sub(r"const API_URL = '[^']*';", f"const API_URL = 'http://{ip}:5000';", html)
+    html_new = re.sub(r"const API_URL = '[^']*';", f"const API_URL = 'https://{ip}:5000';", html)
     if html != html_new:
         with open(index_path, 'w', encoding='utf-8') as f:
             f.write(html_new)
-        print(f'API_URL atualizado para http://{ip}:5000 em frontend/index.html')
+        print(f'API_URL atualizado para https://{ip}:5000 em frontend/index.html')
     else:
         print('API_URL já está correto.')
 
@@ -86,7 +86,7 @@ if __name__ == '__main__':
 
     print('\nAmbos os servidores foram iniciados!')
     print('Acesse o frontend em: https://<seu-ip-local>:8443/index.html')
-    print('Acesse o backend em: http://<seu-ip-local>:5000/')
+    print('Acesse o backend em: https://<seu-ip-local>:5000/')
     print('\nPressione Ctrl+C para sair deste script (os terminais abertos continuarão rodando)')
     try:
         while True:
